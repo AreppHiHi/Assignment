@@ -67,7 +67,6 @@ def normalize_ratings(ratings_dict, target_len=18):
         if len(arr) >= target_len:
             normalized[prog] = arr[:target_len]
         else:
-            # pad with zeros
             padded = arr + [0.0] * (target_len - len(arr))
             normalized[prog] = padded
     return normalized
@@ -76,7 +75,6 @@ def normalize_ratings(ratings_dict, target_len=18):
 def fitness_function(schedule, ratings):
     total_rating = 0.0
     for t, program in enumerate(schedule):
-        # ratings guaranteed to have 18 entries per program after normalize
         total_rating += ratings.get(program, [0.0]*18)[t]
     return total_rating
 
@@ -140,38 +138,32 @@ if not raw_ratings:
     st.error("No ratings loaded. Upload a CSV or place 'program_ratings_modified.csv' beside this app.")
     st.stop()
 
-# Normalize to 18 columns (06:00-23:00)
 ratings = normalize_ratings(raw_ratings, target_len=18)
 
 # -------------------- Fixed time slots --------------------
-time_slots = list(range(6, 24))  # 06:00 ... 23:00 (18 slots)
+time_slots = list(range(6, 24))
 slot_count = len(time_slots)
 
-# -------------------- Sidebar: GA parameters (3 trials) --------------------
+# -------------------- Sidebar: GA parameters (3 Trials) --------------------
 st.sidebar.header("GA Parameters (3 Trials)")
-
 st.sidebar.write("Crossover range: 0.00 – 0.95 | Mutation range: 0.01 – 0.05")
 
-# Trial 1
 st.sidebar.subheader("Trial 1")
-co1 = st.sidebar.slider("Crossover (T1)", min_value=0.0, max_value=0.95, value=0.80, step=0.05, key="co1")
-mu1 = st.sidebar.slider("Mutation (T1)", min_value=0.01, max_value=0.05, value=0.02, step=0.01, key="mu1")
+co1 = st.sidebar.slider("Crossover (T1)", 0.0, 0.95, 0.80, 0.05, key="co1")
+mu1 = st.sidebar.slider("Mutation (T1)", 0.01, 0.05, 0.02, 0.01, key="mu1")
 
-# Trial 2
 st.sidebar.subheader("Trial 2")
-co2 = st.sidebar.slider("Crossover (T2)", min_value=0.0, max_value=0.95, value=0.80, step=0.05, key="co2")
-mu2 = st.sidebar.slider("Mutation (T2)", min_value=0.01, max_value=0.05, value=0.02, step=0.01, key="mu2")
+co2 = st.sidebar.slider("Crossover (T2)", 0.0, 0.95, 0.80, 0.05, key="co2")
+mu2 = st.sidebar.slider("Mutation (T2)", 0.01, 0.05, 0.02, 0.01, key="mu2")
 
-# Trial 3
 st.sidebar.subheader("Trial 3")
-co3 = st.sidebar.slider("Crossover (T3)", min_value=0.0, max_value=0.95, value=0.80, step=0.05, key="co3")
-mu3 = st.sidebar.slider("Mutation (T3)", min_value=0.01, max_value=0.05, value=0.02, step=0.01, key="mu3")
+co3 = st.sidebar.slider("Crossover (T3)", 0.0, 0.95, 0.80, 0.05, key="co3")
+mu3 = st.sidebar.slider("Mutation (T3)", 0.01, 0.05, 0.02, 0.01, key="mu3")
 
-# Other GA controls
 st.sidebar.subheader("Other")
-generations = st.sidebar.number_input("Generations", min_value=10, max_value=2000, value=100, step=10)
-population = st.sidebar.number_input("Population size", min_value=10, max_value=1000, value=100, step=10)
-elitism = st.sidebar.number_input("Elitism (top-k)", min_value=1, max_value=10, value=2, step=1)
+generations = st.sidebar.number_input("Generations", 10, 2000, 100, 10)
+population = st.sidebar.number_input("Population size", 10, 1000, 100, 10)
+elitism = st.sidebar.number_input("Elitism (top-k)", 1, 10, 2, 1)
 
 # Show sample of loaded data
 st.write("### Sample programs (first 5 rows)")
@@ -204,21 +196,18 @@ if st.button("Run All 3 Trials"):
 
         st.subheader(name)
         st.write(f"Parameters used — Crossover: {co_rate} | Mutation: {mut_rate}")
-        st.write(f"Total Fitness: {round(total, 3)}")
+        st.write(f"Total Fitness: {total:.3f}")
 
-        # Build display table guaranteed 18 rows (06:00-23:00)
         rows = []
-for idx in range(slot_count):
-    program = best_schedule[idx]
-    rating = ratings.get(program, [0.0]*slot_count)[idx]
-    rows.append({
-        "Time Slot": f"{time_slots[idx]:02d}:00",
-        "Program": program,
-        "Rating": format(rating, ".1f")
-    })
+        for idx in range(slot_count):
+            program = best_schedule[idx]
+            rating = ratings.get(program, [0.0]*slot_count)[idx]
+            rows.append({
+                "Time Slot": f"{time_slots[idx]:02d}:00",
+                "Program": program,
+                "Rating": format(rating, ".1f")  #  << FORCE 1 decimal only
+            })
 
-df_out = pd.DataFrame(rows)
-st.table(df_out)
-
-
-        
+        df_out = pd.DataFrame(rows)
+        st.table(df_out)
+        st.markdown("---")
