@@ -208,16 +208,17 @@ if st.button("Run All 3 Trials"):
 
         # Build display table guaranteed 18 rows (06:00-23:00)
         rows = []
-        for idx in range(slot_count):
-            program = best_schedule[idx]
-            rating = ratings.get(program, [0.0]*slot_count)[idx]
-            rows.append({
-                "Time Slot": f"{time_slots[idx]:02d}:00",
-                "Program": program,
-                "Rating": round(rating, 1)
-            })
+for idx in range(slot_count):
+    program = best_schedule[idx]
+    rating = ratings.get(program, [0.0]*slot_count)[idx]
+    rows.append({
+        "Time Slot": f"{time_slots[idx]:02d}:00",
+        "Program": program,
+        "Rating": format(rating, ".1f")
+    })
 
-        df_out = pd.DataFrame(rows)
-        st.table(df_out)   # static table display
-        st.markdown("---")
+df_out = pd.DataFrame(rows)
+st.table(df_out)
 
+
+        
