@@ -11,7 +11,7 @@ st.markdown(
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .block-container {padding-top: 20px;}
+    .block-container {padding-top: 12px;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -22,12 +22,20 @@ st.title("Genetic Algorithm TV Scheduler")
 
 # -------------------- Helper: Read CSV --------------------
 def read_csv_from_fileobj(fileobj):
-    reader = csv.reader(io.StringIO(fileobj.getvalue().decode("utf-8")))
+    text = fileobj.getvalue().decode("utf-8")
+    reader = csv.reader(io.StringIO(text))
     header = next(reader)
     program_ratings = {}
     for row in reader:
+        if not row:
+            continue
         program = row[0]
-        ratings = [float(x) if x else 0.0 for x in row[1:]]
+        ratings = []
+        for val in row[1:]:
+            try:
+                ratings.append(float(val) if val != "" else 0.0)
+            except:
+                ratings.append(0.0)
         program_ratings[program] = ratings
     return program_ratings
 
@@ -38,19 +46,38 @@ def read_csv_from_path(path):
             reader = csv.reader(file)
             header = next(reader)
             for row in reader:
+                if not row:
+                    continue
                 program = row[0]
-                ratings = [float(x) if x else 0.0 for x in row[1:]]
+                ratings = []
+                for val in row[1:]:
+                    try:
+                        ratings.append(float(val) if val != "" else 0.0)
+                    except:
+                        ratings.append(0.0)
                 program_ratings[program] = ratings
     except FileNotFoundError:
         return {}
     return program_ratings
 
+# -------------------- Normalize ratings to exactly 18 columns (06:00-23:00) --------------------
+def normalize_ratings(ratings_dict, target_len=18):
+    normalized = {}
+    for prog, arr in ratings_dict.items():
+        if len(arr) >= target_len:
+            normalized[prog] = arr[:target_len]
+        else:
+            # pad with zeros
+            padded = arr + [0.0] * (target_len - len(arr))
+            normalized[prog] = padded
+    return normalized
+
 # -------------------- Genetic Algorithm Utilities --------------------
 def fitness_function(schedule, ratings):
     total_rating = 0.0
     for t, program in enumerate(schedule):
-        # assume ratings has 18 columns for 06-23
-        total_rating += ratings.get(program, [0.0] * 18)[t]
+        # ratings guaranteed to have 18 entries per program after normalize
+        total_rating += ratings.get(program, [0.0]*18)[t]
     return total_rating
 
 def initialize_population(programs, pop_size, slot_count):
@@ -101,26 +128,30 @@ def genetic_algorithm(ratings, all_programs, slot_count, generations, pop_size, 
     return best
 
 # -------------------- Inputs: Uploader + Defaults --------------------
-st.write("Upload a CSV (optional). CSV format: Program, r06, r07, ..., r23  (18 rating columns).")
+st.write("Upload CSV (optional). Format: Program, r06, r07, ..., r23  (18 rating columns).")
 uploaded = st.file_uploader("Upload program_ratings CSV", type=["csv"])
 
 if uploaded:
-    ratings = read_csv_from_fileobj(uploaded)
+    raw_ratings = read_csv_from_fileobj(uploaded)
 else:
-    ratings = read_csv_from_path("program_ratings_modified.csv")
+    raw_ratings = read_csv_from_path("program_ratings_modified.csv")
 
-if not ratings:
+if not raw_ratings:
     st.error("No ratings loaded. Upload a CSV or place 'program_ratings_modified.csv' beside this app.")
     st.stop()
 
+# Normalize to 18 columns (06:00-23:00)
+ratings = normalize_ratings(raw_ratings, target_len=18)
+
 # -------------------- Fixed time slots --------------------
 time_slots = list(range(6, 24))  # 06:00 ... 23:00 (18 slots)
-slot_count = len(time_slots)      # 18
+slot_count = len(time_slots)
 
 # -------------------- Sidebar: GA parameters (3 trials) --------------------
 st.sidebar.header("GA Parameters (3 Trials)")
 
 st.sidebar.write("Crossover range: 0.00 – 0.95 | Mutation range: 0.01 – 0.05")
+
 # Trial 1
 st.sidebar.subheader("Trial 1")
 co1 = st.sidebar.slider("Crossover (T1)", min_value=0.0, max_value=0.95, value=0.80, step=0.05, key="co1")
@@ -138,7 +169,7 @@ mu3 = st.sidebar.slider("Mutation (T3)", min_value=0.01, max_value=0.05, value=0
 
 # Other GA controls
 st.sidebar.subheader("Other")
-generations = st.sidebar.number_input("Generations", min_value=10, max_value=1000, value=100, step=10)
+generations = st.sidebar.number_input("Generations", min_value=10, max_value=2000, value=100, step=10)
 population = st.sidebar.number_input("Population size", min_value=10, max_value=1000, value=100, step=10)
 elitism = st.sidebar.number_input("Elitism (top-k)", min_value=1, max_value=10, value=2, step=1)
 
@@ -172,7 +203,21 @@ if st.button("Run All 3 Trials"):
         total = fitness_function(best_schedule, ratings)
 
         st.subheader(name)
-        st.write(f"Crossover: {co_rate} | Mutation: {mut_rate} | Generations: {generations} | Population: {population}")
+        st.write(f"Parameters used — Crossover: {co_rate} | Mutation: {mut_rate}")
         st.write(f"Total Fitness: {round(total, 3)}")
 
-        # Build display table guaran
+        # Build display table guaranteed 18 rows (06:00-23:00)
+        rows = []
+        for idx in range(slot_count):
+            program = best_schedule[idx]
+            rating = ratings.get(program, [0.0]*slot_count)[idx]
+            rows.append({
+                "Time Slot": f"{time_slots[idx]:02d}:00",
+                "Program": program,
+                "Rating": round(rating, 3)
+            })
+
+        df_out = pd.DataFrame(rows)
+        st.table(df_out)   # static table display
+        st.markdown("---")
+
