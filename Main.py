@@ -82,13 +82,20 @@ def genetic_algorithm(initial_schedule, generations=GEN, population_size=POP, cr
 
 # Run GA
 genetic_schedule = genetic_algorithm(initial_best_schedule, crossover_rate=CO_R, mutation_rate=MUT_R)
-final_schedule = genetic_schedule
 
-# Display schedule table
+# make sure equal length to time slots (18 length)
+final_schedule = genetic_schedule[:len(all_time_slots)]
+
+# If shorter, pad randomly (avoid error)
+while len(final_schedule) < len(all_time_slots):
+    final_schedule.append(random.choice(all_programs))
+
+
 df = pd.DataFrame({
     "Time Slot": [f"{ts:02d}:00" for ts in all_time_slots],
     "Program": final_schedule
 })
+
 
 st.subheader("Final Optimal Schedule Table")
 st.table(df)
