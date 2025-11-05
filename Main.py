@@ -3,25 +3,35 @@ import csv
 import random
 import pandas as pd
 
-# ===================== STEP 1: READ CSV (AUTO LOAD) =====================
+# ===================== REMOVE STREAMLIT DEFAULT HEADER/FOOTER =====================
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
 
+# ===================== PAGE TITLE =====================
+st.title("Genetic Algorithm TV Scheduler")
+
+# ===================== STEP 1: READ CSV =====================
 def read_csv_to_dict(file_path):
     program_ratings = {}
     try:
         with open(file_path, mode='r', newline='') as file:
             reader = csv.reader(file)
-            header = next(reader)  # skip header
+            header = next(reader)
             for row in reader:
                 program = row[0]
                 ratings = [float(x) if x else 0.0 for x in row[1:]]
                 program_ratings[program] = ratings
     except FileNotFoundError:
-        st.error("❌ File 'program_ratings_modified.csv' not found. Please make sure it’s in the same folder as this app.")
+        st.error("File 'program_ratings_modified.csv' not found. Please ensure it’s in the same directory.")
     return program_ratings
 
 
 # ===================== STEP 2: GENETIC ALGORITHM FUNCTIONS =====================
-
 def fitness_function(schedule, ratings):
     total_rating = 0
     for time_slot, program in enumerate(schedule):
@@ -84,10 +94,7 @@ def genetic_algorithm(ratings, all_programs, generations, pop_size, crossover_ra
 
 
 # ===================== STREAMLIT INTERFACE =====================
-
-st.title("📺 Genetic Algorithm TV Schedule Optimizer")
-
-st.sidebar.header("⚙️ Genetic Algorithm Parameters")
+st.sidebar.header("Genetic Algorithm Parameters")
 
 file_path = "program_ratings_modified.csv"
 ratings = read_csv_to_dict(file_path)
@@ -96,31 +103,29 @@ if ratings:
     all_programs = list(ratings.keys())
     all_time_slots = list(range(6, 6 + len(all_programs)))
 
-    # ===================== TRIAL 1 PARAMETERS =====================
-    st.sidebar.subheader("Trial 1 Parameters")
-    CO_R1 = st.sidebar.slider("Crossover Rate (Trial 1)", 0.0, 1.0, 0.8, step=0.05, key="co1")
-    MUT_R1 = st.sidebar.slider("Mutation Rate (Trial 1)", 0.0, 1.0, 0.2, step=0.01, key="mu1")
+    # === TRIAL PARAMETERS ===
+    st.sidebar.subheader("Trial 1")
+    CO_R1 = st.sidebar.slider("Crossover Rate", 0.0, 1.0, 0.8, step=0.05, key="co1")
+    MUT_R1 = st.sidebar.slider("Mutation Rate", 0.0, 1.0, 0.2, step=0.01, key="mu1")
 
-    # ===================== TRIAL 2 PARAMETERS =====================
-    st.sidebar.subheader("Trial 2 Parameters")
-    CO_R2 = st.sidebar.slider("Crossover Rate (Trial 2)", 0.0, 1.0, 0.8, step=0.05, key="co2")
-    MUT_R2 = st.sidebar.slider("Mutation Rate (Trial 2)", 0.0, 1.0, 0.2, step=0.01, key="mu2")
+    st.sidebar.subheader("Trial 2")
+    CO_R2 = st.sidebar.slider("Crossover Rate ", 0.0, 1.0, 0.8, step=0.05, key="co2")
+    MUT_R2 = st.sidebar.slider("Mutation Rate ", 0.0, 1.0, 0.2, step=0.01, key="mu2")
 
-    # ===================== TRIAL 3 PARAMETERS =====================
-    st.sidebar.subheader("Trial 3 Parameters")
-    CO_R3 = st.sidebar.slider("Crossover Rate (Trial 3)", 0.0, 1.0, 0.8, step=0.05, key="co3")
-    MUT_R3 = st.sidebar.slider("Mutation Rate (Trial 3)", 0.0, 1.0, 0.2, step=0.01, key="mu3")
+    st.sidebar.subheader("Trial 3")
+    CO_R3 = st.sidebar.slider("Crossover Rate  ", 0.0, 1.0, 0.8, step=0.05, key="co3")
+    MUT_R3 = st.sidebar.slider("Mutation Rate  ", 0.0, 1.0, 0.2, step=0.01, key="mu3")
 
-    # Fixed GA parameters
     GEN = 100
     POP = 100
     EL_S = 2
 
-    st.write("### Loaded Programs (Sample)")
+    st.write("### Sample Data from CSV")
     sample_df = pd.DataFrame(list(ratings.items()), columns=["Program", "Ratings"]).head(5)
     st.dataframe(sample_df)
 
-    if st.button("🚀 Run All 3 Trials"):
+    # ===================== RUN TRIALS =====================
+    if st.button("Run All Trials"):
         trial_settings = [
             ("Trial 1", CO_R1, MUT_R1),
             ("Trial 2", CO_R2, MUT_R2),
@@ -129,7 +134,7 @@ if ratings:
 
         results = []
 
-        with st.spinner("Running all 3 trials..."):
+        with st.spinner("Running genetic algorithm for all trials..."):
             for name, co_rate, mut_rate in trial_settings:
                 best_schedule, fitness_history = genetic_algorithm(
                     ratings, all_programs, GEN, POP, co_rate, mut_rate, EL_S
@@ -137,22 +142,21 @@ if ratings:
                 total_fitness = fitness_function(best_schedule, ratings)
                 results.append((name, co_rate, mut_rate, best_schedule, fitness_history, total_fitness))
 
-        # Display all trials
+        # === DISPLAY RESULTS ===
         for name, co_rate, mut_rate, schedule, fitness_history, total_fit in results:
-            st.markdown(f"## 🧪 {name}")
-            st.write(f"**Crossover Rate:** {co_rate} | **Mutation Rate:** {mut_rate}")
+            st.subheader(name)
+            st.write(f"Crossover Rate: {co_rate} | Mutation Rate: {mut_rate}")
             st.metric(label="Total Fitness", value=round(total_fit, 2))
 
-            # Display schedule
             schedule_data = []
             for i, program in enumerate(schedule):
+                rating = ratings[program][i] if i < len(ratings[program]) else 0
                 schedule_data.append({
                     "Time Slot": f"{all_time_slots[i]:02d}:00",
                     "Program": program,
-                    "Rating": round(ratings[program][i], 2) if i < len(ratings[program]) else "-"
+                    "Rating": round(rating, 2)
                 })
-            st.dataframe(pd.DataFrame(schedule_data))
 
-            # Display fitness chart
+            st.dataframe(pd.DataFrame(schedule_data))
             st.line_chart(fitness_history)
-            st.divider()
+            st.markdown("---")
