@@ -29,12 +29,11 @@ GEN = 100
 POP = 50
 EL_S = 2
 all_programs = list(ratings.keys())
-all_time_slots = list(range(6,24))
+all_time_slots = list(range(6,24)) # 6pm - 11pm = 18 slots
 
 def fitness_function(schedule):
     return sum(ratings[program][i] for i, program in enumerate(schedule))
 
-# Generate initial permutations
 def initialize_pop(programs, time_slots):
     if not programs:
         return [[]]
@@ -80,24 +79,21 @@ def genetic_algorithm(initial_schedule, generations=GEN, population_size=POP, cr
         population=new_pop
     return population[0]
 
-# Run GA
-genetic_schedule = genetic_algorithm(initial_best_schedule, crossover_rate=CO_R, mutation_rate=MUT_R)
+if st.button("RUN GENETIC ALGORITHM"):
 
-# make sure equal length to time slots (18 length)
-final_schedule = genetic_schedule[:len(all_time_slots)]
+    genetic_schedule = genetic_algorithm(initial_best_schedule, crossover_rate=CO_R, mutation_rate=MUT_R)
 
-# If shorter, pad randomly (avoid error)
-while len(final_schedule) < len(all_time_slots):
-    final_schedule.append(random.choice(all_programs))
+    final_schedule = genetic_schedule[:len(all_time_slots)]
 
+    while len(final_schedule) < len(all_time_slots):
+        final_schedule.append(random.choice(all_programs))
 
-df = pd.DataFrame({
-    "Time Slot": [f"{ts:02d}:00" for ts in all_time_slots],
-    "Program": final_schedule
-})
+    df = pd.DataFrame({
+        "Time Slot": [f"{ts:02d}:00" for ts in all_time_slots],
+        "Program": final_schedule
+    })
 
+    st.subheader("Final Optimal Schedule Table")
+    st.table(df)
 
-st.subheader("Final Optimal Schedule Table")
-st.table(df)
-
-st.write("Total Ratings:", fitness_function(final_schedule))
+    st.write("Total Ratings:", fitness_function(final_schedule))
