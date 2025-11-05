@@ -214,7 +214,7 @@ if st.button("Run All 3 Trials"):
             rows.append({
                 "Time Slot": f"{time_slots[idx]:02d}:00",
                 "Program": program,
-                "Rating": f"(rating,.1f)"
+                "Rating": round(rating, 1)
             })
 
         df_out = pd.DataFrame(rows)
